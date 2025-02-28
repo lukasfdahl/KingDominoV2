@@ -18,7 +18,7 @@ def load_image(image_file_number):
     return (image, image_small)
 
 image_files = glob.glob("DSC_*.JPG")
-image_file_number = 0
+image_file_number = 1
 image, image_small = load_image(image_file_number)
 
 roi = RoiHandler()
