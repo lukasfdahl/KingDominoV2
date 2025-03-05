@@ -17,7 +17,7 @@ def main():
     for y, row in enumerate(tiles):
         for x, tile in enumerate(row):
             print(f"Tile ({x}, {y}):")
-            print(get_terrain(tile))
+            print(get_terrain(tile, x, y))
             print("=====")
 
 # Break a board into tiles
@@ -35,5 +35,30 @@ def get_terrain(tile):
     
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     main()
+
+
+
+from sklearn.cluster import KMeans
+
+tileData = []
+tilePosition = []
+
+kmeans = KMeans(n_clusters=8, random_state=42, n_init="auto")
+kmeans.fit(tileData)
+
+categoryDictioanry = {}
+
+i = 0
+for tile in tileData:
+    closest_center = kmeans.predict(tile)
+    if closest_center in categoryDictioanry:
+        categoryDictioanry[closest_center].append(tilePosition[i])
+    else:
+        categoryDictioanry[closest_center] = []
+        categoryDictioanry[closest_center].append(tilePosition[i])
+    i += 1
+
+
+print(categoryDictioanry)
