@@ -12,8 +12,8 @@ print(image.shape)
 fd, hog_image = hog(
     image,
     orientations=8,
-    pixels_per_cell=(10, 10),
-    cells_per_block=(1, 1),
+    pixels_per_cell=(8, 8),
+    cells_per_block=(3, 3),
     visualize=True
 )
 

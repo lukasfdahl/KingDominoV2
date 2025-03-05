@@ -11,8 +11,8 @@ image = cv2.imread("King Domino dataset/Cropped and perspective corrected boards
 fd, hog_image = hog(
     image,
     orientations=2,
-    pixels_per_cell=(50, 50),
-    cells_per_block=(1, 1),
+    pixels_per_cell=(8, 8),
+    cells_per_block=(3, 3),
     visualize=True,
     feature_vector=True
 )
