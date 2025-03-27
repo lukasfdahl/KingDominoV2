@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 
 centerTile_path = "Classified_Tiles/CenterTile"
 farmTile_path = "Classified_Tiles/Farm"
@@ -23,6 +24,46 @@ ordinal_encoder = OrdinalEncoder()
 
 #main function
 def main():
+    tile_model = generate_tile_model()
+    calculate_score(cv.imread("King Domino dataset/Train/3.jpg"), tile_model)
+
+
+
+def calculate_score(image : cv.Mat, tile_model : RandomForestClassifier):
+    #processing image
+    tiles = get_tiles(image)   
+    acf_data = acf_extract_list(tiles)
+    dataframe = pd.DataFrame(columns=["Position", "magnitude_hist", "orientation_hist", "hue_hist"])
+    i = 0
+    for acf_data_point in acf_data:
+        dataframe.loc[len(dataframe)] = [(i % 5, np.floor(i / 5)), acf_data_point[0], acf_data_point[1], acf_data_point[2]] #appends the ACF data for the tile in the dataframe
+        i += 1
+    
+    model_input = preprocess_x(dataframe[["magnitude_hist", "orientation_hist", "hue_hist"]])
+    model_predict = tile_model.predict(model_input)
+    model_predict_labels = ordinal_encoder.inverse_transform(model_predict.reshape(-1, 1)).flatten()  # Convert predictions to original labels
+    
+    #plot results
+    fig, axes = plt.subplots(5, 5, figsize=(8, 8))
+    for i, ax in enumerate(axes.flat):
+        ax.imshow(cv.cvtColor(tiles[i], cv.COLOR_BGR2RGB))
+        ax.text(0.5, -0.1, model_predict_labels[i], ha='center', va='top', transform=ax.transAxes, fontsize=10)
+        ax.axis('off')
+        
+    plt.tight_layout()
+    plt.show()
+    
+
+# Break a board into tiles (taken from p0 github)
+def get_tiles(image : cv.Mat):
+    tiles = []
+    for y in range(5):
+        for x in range(5):
+            tiles.append(image[y*100:(y+1)*100, x*100:(x+1)*100])
+    return tiles    
+
+#collects data, preprocesses data, and traines model
+def generate_tile_model():
     #extract traning data and save to dataframe
     data = pd.DataFrame(columns=["TileType", "magnitude_hist", "orientation_hist", "hue_hist"])
     extract_and_save_ACF_data(centerTile_path, data, "Center")
@@ -43,23 +84,36 @@ def main():
     train_x = preprocess_x(train_x)
     train_y = preprocess_y(train_y)
     
-    print(train_x)
-    print(train_y)
     #train model
     print("Training model")
     model = RandomForestClassifier()
     model.fit(train_x, train_y)
     
+    ''' For generating performance repport and confusion matrix
     #test model
     print("testing model")
     test_x = preprocess_x(test_x)
     test_y = preprocess_y(test_y)
+    pred_y = model.predict(test_x)
     
-    pred_y = model.apply(test_x)
-    conf_matrix = confusion_matrix(test_y, pred_y)
-    sn.heatmap(conf_matrix)
+    pred_y_labels = ordinal_encoder.inverse_transform(pred_y.reshape(-1, 1)).flatten()  # Convert predictions to original labels
+    test_y_labels = ordinal_encoder.inverse_transform(test_y.values.reshape(-1, 1)).flatten()  # Convert actual values to original labels
+    
+    # Generate confusion matrix
+    conf_matrix = confusion_matrix(test_y_labels, pred_y_labels, labels=ordinal_encoder.categories_[0])  # Ensure categories are used
+    
+    print(classification_report(test_y_labels, pred_y_labels, labels=ordinal_encoder.categories_[0]))
+    
+    # Display the confusion matrix with actual labels
+    plt.figure(figsize=(10,7))
+    sn.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=ordinal_encoder.categories_[0], yticklabels=ordinal_encoder.categories_[0])
+    plt.xlabel('Predicted Labels')
+    plt.ylabel('True Labels')
+    plt.title('Confusion Matrix')
     plt.show()
-
+    '''
+    print("Done Traning model")
+    return model
 
 #extraqctes all image data from a specefic folder
 def extract_and_save_ACF_data(folder_path, dataframe, tile_name):
@@ -93,8 +147,9 @@ def preprocess_y(dataframe : pd.DataFrame):
     dataframe["TileType"] = ordinal_encoder.transform(dataframe)
     return dataframe["TileType"]
 
-
-
+#gets the number of crowns on a tile
+def get_number_of_crowns(image : cv.Mat):
+    pass
 
 if __name__ == "__main__":
     main()
