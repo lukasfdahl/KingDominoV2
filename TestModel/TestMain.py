@@ -21,6 +21,8 @@ swampTile_path = "Classified_Tiles/Swamp"
 waterTile_path = "Classified_Tiles/Water"
 
 ordinal_encoder = OrdinalEncoder()
+crown_template = cv.imread("King Domino dataset/CrownTemplate.png", cv.IMREAD_GRAYSCALE) #image used with sift to find crowns
+#sift = cv.SIFT_create()
 
 #main function
 def main():
@@ -39,7 +41,8 @@ def calculate_score(image : cv.Mat, tile_model : RandomForestClassifier):
         dataframe.loc[len(dataframe)] = [(i % 5, np.floor(i / 5)), acf_data_point[0], acf_data_point[1], acf_data_point[2]] #appends the ACF data for the tile in the dataframe
         i += 1
     
-    model_input = preprocess_x(dataframe[["magnitude_hist", "orientation_hist", "hue_hist"]])
+    model_input = dataframe[["magnitude_hist", "orientation_hist", "hue_hist"]]
+    model_input = preprocess_x(model_input)
     model_predict = tile_model.predict(model_input)
     model_predict_labels = ordinal_encoder.inverse_transform(model_predict.reshape(-1, 1)).flatten()  # Convert predictions to original labels
     
@@ -130,15 +133,15 @@ def extract_and_save_ACF_data(folder_path, dataframe, tile_name):
 
 
 def preprocess_x(dataframe : pd.DataFrame):
-    dataframe["magnitude_hist"] = dataframe["magnitude_hist"].apply(lambda x: np.array(x))
-    dataframe["orientation_hist"] = dataframe["orientation_hist"].apply(lambda x: np.array(x))
-    dataframe["hue_hist"] = dataframe["hue_hist"].apply(lambda x: np.array(x))
+    magnitude_hist_frame = dataframe["magnitude_hist"].apply(lambda x: np.array(x))
+    orientation_hist_frame = dataframe["orientation_hist"].apply(lambda x: np.array(x))
+    hue_hist_frame = dataframe["hue_hist"].apply(lambda x: np.array(x))
     
     # Convert lists to individual columns
     dataframe_expanded = np.hstack([
-        np.vstack(dataframe["magnitude_hist"]),
-        np.vstack(dataframe["orientation_hist"]),
-        np.vstack(dataframe["hue_hist"])
+        np.vstack(magnitude_hist_frame),
+        np.vstack(orientation_hist_frame),
+        np.vstack(hue_hist_frame)
     ])
 
     return pd.DataFrame(dataframe_expanded)  # Return the new DataFrame
@@ -149,6 +152,7 @@ def preprocess_y(dataframe : pd.DataFrame):
 
 #gets the number of crowns on a tile
 def get_number_of_crowns(image : cv.Mat):
+    target = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     pass
 
 if __name__ == "__main__":
