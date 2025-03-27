@@ -11,6 +11,7 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 
+#Tile Model (Random Forest)
 centerTile_path = "Classified_Tiles/CenterTile"
 farmTile_path = "Classified_Tiles/Farm"
 fieldTile_path = "Classified_Tiles/Field"
@@ -21,8 +22,11 @@ swampTile_path = "Classified_Tiles/Swamp"
 waterTile_path = "Classified_Tiles/Water"
 
 ordinal_encoder = OrdinalEncoder()
+
+#crowns (SIFT)
 crown_template = cv.imread("King Domino dataset/CrownTemplate.png", cv.IMREAD_GRAYSCALE) #image used with sift to find crowns
-#sift = cv.SIFT_create()
+sift = cv.SIFT_create()
+bf = cv.BFMatcher(cv.NORM_L2, crossCheck=False) #BFMatcher finds the best matches between descriptors (used for SIFT)
 
 #main function
 def main():
@@ -35,10 +39,10 @@ def calculate_score(image : cv.Mat, tile_model : RandomForestClassifier):
     #processing image
     tiles = get_tiles(image)   
     acf_data = acf_extract_list(tiles)
-    dataframe = pd.DataFrame(columns=["Position", "magnitude_hist", "orientation_hist", "hue_hist"])
+    dataframe = pd.DataFrame(columns=["Position", "Crowns", "magnitude_hist", "orientation_hist", "hue_hist"])
     i = 0
     for acf_data_point in acf_data:
-        dataframe.loc[len(dataframe)] = [(i % 5, np.floor(i / 5)), acf_data_point[0], acf_data_point[1], acf_data_point[2]] #appends the ACF data for the tile in the dataframe
+        dataframe.loc[len(dataframe)] = [(i % 5, np.floor(i / 5)), get_number_of_crowns(tiles[i]), acf_data_point[0], acf_data_point[1], acf_data_point[2]] #appends the ACF data for the tile in the dataframe
         i += 1
     
     model_input = dataframe[["magnitude_hist", "orientation_hist", "hue_hist"]]
@@ -50,7 +54,7 @@ def calculate_score(image : cv.Mat, tile_model : RandomForestClassifier):
     fig, axes = plt.subplots(5, 5, figsize=(8, 8))
     for i, ax in enumerate(axes.flat):
         ax.imshow(cv.cvtColor(tiles[i], cv.COLOR_BGR2RGB))
-        ax.text(0.5, -0.1, model_predict_labels[i], ha='center', va='top', transform=ax.transAxes, fontsize=10)
+        ax.text(0.5, -0.1, f"{model_predict_labels[i]} - {dataframe["Crowns"][i]}", ha='center', va='top', transform=ax.transAxes, fontsize=10)
         ax.axis('off')
         
     plt.tight_layout()
@@ -153,7 +157,25 @@ def preprocess_y(dataframe : pd.DataFrame):
 #gets the number of crowns on a tile
 def get_number_of_crowns(image : cv.Mat):
     target = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    pass
+    
+    # Find keypoints and descriptors in the template image and target image
+    kp_template, des_template = sift.detectAndCompute(crown_template, None)
+    kp_target, des_target = sift.detectAndCompute(target, None)
+    
+    # Match the descriptors using KNN
+    matches = bf.knnMatch(des_template, des_target, k=2)
+    
+    # Apply Lowe's ratio test to filter good matches
+    good_matches = []
+    for m in matches:
+        if len(m) == 2:  # Ensure there are two matches
+            m, n = m  # Unpack the two nearest neighbors
+            if m.distance < 0.75 * n.distance:
+                good_matches.append(m)
+        elif len(m) == 1:  # Handle the case where there is only one match
+            good_matches.append(m[0])  # Directly append the single match
+    
+    return len(good_matches)
 
 if __name__ == "__main__":
     main()
