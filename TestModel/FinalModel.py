@@ -215,7 +215,10 @@ def get_number_of_crowns(acf, crown_model : RandomForestClassifier):
 
 
 def calc_score_block(position : tuple[int, int], tile_type : str):
-    neighbour_positions = [(position[0]-1, position[1]-1),(position[0]+1, position[1]-1),(position[0]+1, position[1]+1),(position[0]-1, position[1]+1)]
+    neighbour_positions = [(position[0]-1, position[1]),  # left
+                       (position[0]+1, position[1]),  # right   
+                       (position[0], position[1]-1),  # up
+                       (position[0], position[1]+1)]  # down
     crown_num = tile_map[position][1]
     number_of_tiles = 1
     tile_map.pop(position)
