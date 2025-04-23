@@ -10,6 +10,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 
 #Tile Model (Random Forest)
 centerTile_path = "Classified_Tiles/CenterTile"
@@ -41,10 +43,66 @@ def main():
     crown_model = generate_crown_model()
     tile_model = generate_tile_model()
     
+    print("doen making models")
+    
     #run on test set
     pre_calculated_scores = pd.read_csv("kingdomino_scores.csv")
 
+    #get images and names from test set
+    files_in_test_folder = os.listdir("King Domino dataset/Test")
+    y_true = []
+    y_pred = []
+    
+    for file in files_in_test_folder:
+        predicted_score = calculate_score(cv.imread(f"King Domino dataset/Test/{file}"), tile_model, crown_model)
+        y_pred.append(predicted_score)
+        board_number = file.removesuffix(".jpg")
+        true_score = pre_calculated_scores[pre_calculated_scores["TileNumber"] == int(board_number)]["Score"].values[0]
+        print(f"true score = {true_score}, predicted score = {predicted_score}")
+        y_true.append(true_score)
+        
+    full_acc_num = 0
+    for index, element in enumerate(y_true):
+        if element == y_pred[index]:
+            full_acc_num += 1
+            
+    total_board_num = len(y_pred)
+    
+    print(f"precentage of boards with 100% accurate predections = {full_acc_num / total_board_num}")
+    print(f"mean squared error = {mean_squared_error(y_true, y_pred)}")
+    print(f"mean absolute error = {mean_absolute_error(y_true, y_pred)}")
+    
+    abs_errors = np.abs(np.array(y_true) - np.array(y_pred))
+    median_abs_error = np.median(abs_errors)
 
+    print(f"median absolute error = {median_abs_error:.2f}")
+    
+    #######################
+    # draw plot ###########
+    #######################
+    
+    board_indices = list(range(len(y_true)))
+    abs_error = [abs(t - p) for t, p in zip(y_true, y_pred)]
+
+    fig, ax1 = plt.subplots(figsize=(15, 6))
+
+    width = 0.4
+    ax1.bar([i - width/2 for i in board_indices], y_true, width=width, label='True Score', color='skyblue')
+    ax1.bar([i + width/2 for i in board_indices], y_pred, width=width, label='Predicted Score', color='orange')
+    ax1.set_xlabel('Board Index')
+    ax1.set_ylabel('Score')
+    ax1.tick_params(axis='y')
+    ax1.legend(loc='upper left')
+
+    # Secondary y-axis for absolute error
+
+    # Annotate number of perfect predictions
+    perfect_preds = sum([t == p for t, p in zip(y_true, y_pred)])
+    plt.title(f'Score Predictions vs True Scores (Perfect predictions: {perfect_preds}/{len(y_true)})')
+
+    plt.tight_layout()
+    plt.show()
+        
 
 def calculate_score(image : cv.Mat, tile_model : RandomForestClassifier, crown_model : RandomForestClassifier):
     #processing image
@@ -81,17 +139,7 @@ def calculate_score(image : cv.Mat, tile_model : RandomForestClassifier, crown_m
         crowns_num, tile_num = calc_score_block(first_key, tile_map[first_key][0])
         score += crowns_num * tile_num
 
-    print(f"score : {score}")
-
-    #plot results
-    fig, axes = plt.subplots(5, 5, figsize=(8, 8))
-    for i, ax in enumerate(axes.flat):
-        ax.imshow(cv.cvtColor(tiles[i], cv.COLOR_BGR2RGB))
-        ax.text(0.5, -0.1, f"{model_predict_labels[i]} - {dataframe["Crowns"][i]}", ha='center', va='top', transform=ax.transAxes, fontsize=10)
-        ax.axis('off')
-        
-    plt.tight_layout()
-    plt.show()
+    return score
     
 
 # Break a board into tiles (taken from p0 github)
